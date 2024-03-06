@@ -1,38 +1,24 @@
-#!/usr/bin/env bash
-# Sets up a web server for deployment of web_static.
+from fabric.api import local
+from datetime import datetime
+import os
 
-apt-get update
-apt-get install -y nginx
+def do_pack():
+    """Generates a .tgz archive from the contents of the web_static folder."""
+    try:
+        # Create the versions folder if it doesn't exist
+        if not os.path.exists("versions"):
+            local("mkdir versions")
 
-mkdir -p /data/web_static/releases/test/
-mkdir -p /data/web_static/shared/
-echo "Holberton School" > /data/web_static/releases/test/index.html
-ln -sf /data/web_static/releases/test/ /data/web_static/current
+        # Generate the archive name using the current timestamp
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        archive_name = f"web_static_{timestamp}.tgz"
 
-chown -R ubuntu /data/
-chgrp -R ubuntu /data/
+        # Pack the contents of web_static into the archive
+        local(f"tar -cvzf versions/{archive_name} web_static")
 
-printf %s "server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-    add_header X-Served-By $HOSTNAME;
-    root   /var/www/html;
-    index  index.html index.htm;
+        # Return the path of the generated archive
+        return f"versions/{archive_name}"
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
 
-    location /hbnb_static {
-	alias /data/web_static/current;
-	index index.html index.htm;
-    }
-
-    location /redirect_me {
-	return 301 http://cuberule.com/;
-    }
-
-    error_page 404 /404.html;
-    location /404 {
-      root /var/www/html;
-      internal;
-    }
-}" > /etc/nginx/sites-available/default
-
-service nginx restart
