@@ -1,24 +1,39 @@
-from fabric.api import local
-from datetime import datetime
-import os
+#!/usr/bin/env bash
+# a Bash script that sets up your web servers for the deployment of web_static
 
-def do_pack():
-    """Generates a .tgz archive from the contents of the web_static folder."""
-    try:
-        # Create the versions folder if it doesn't exist
-        if not os.path.exists("versions"):
-            local("mkdir versions")
+# install nginx
+sudo apt-get update
+sudo apt-get install nginx -y
 
-        # Generate the archive name using the current timestamp
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        archive_name = f"web_static_{timestamp}.tgz"
+# create necessary folders
+sudo mkdir -p /data/web_static/releases/test/
+sudo mkdir -p /data/web_static/shared/
 
-        # Pack the contents of web_static into the archive
-        local(f"tar -cvzf versions/{archive_name} web_static")
+webpage='<html>
+  <head>
+  </head>
+  <body>
+    Holberton School
+  </body>
+</html>'
+echo "$webpage" > /data/web_static/releases/test/index.html
 
-        # Return the path of the generated archive
-        return f"versions/{archive_name}"
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
+symlink="/data/web_static/current"
 
+if [ -L "$symlink" ]; then
+  rm "$symlink"
+fi
+ln -sf /data/web_static/releases/test/ /data/web_static/current
+
+sudo chown -hR "ubuntu:ubuntu" /data
+
+# handle hbnb_static
+hbnb_static="\n\
+        location /hbnb_static {\n\
+                alias /data/web_static/current/;\n\
+        }"
+config="/etc/nginx/sites-available/default"
+sudo sed -i "/server_name _;/a\ $hbnb_static" "$config"
+
+#restart nginx
+sudo service nginx restart
